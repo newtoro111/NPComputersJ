@@ -1,0 +1,4 @@
+app:
+  secure-cookie: false
+  seed: true
+  mail-sink: true

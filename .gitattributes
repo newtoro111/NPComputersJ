@@ -1,0 +1,21 @@
+# Normalize text files in the repository.
+* text=auto
+
+# Shell scripts execute inside Linux containers and must use LF.
+*.sh text eol=lf
+
+# Docker/Linux-oriented configuration files.
+Dockerfile text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+
+# Windows PowerShell scripts may use Windows line endings.
+*.ps1 text eol=crlf
+
+# Source files.
+*.java text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.json text eol=lf
+*.sql text eol=lf
+*.md text eol=lf

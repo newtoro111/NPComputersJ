@@ -1,0 +1,14 @@
+# Implementation decisions
+
+1. Modular application layers share one Spring Boot deployment. Application services own transaction boundaries. JPA repositories cover business aggregates; parameterized JDBC handles profiles, audit, idempotency and outbox records. DTOs explicitly control public responses.
+2. Product is the catalog and stock aggregate. Its pessimistic lock serializes price, active flag and stock changes, avoiding a race between catalog administration and checkout. Stock changes have separate immutable movements. Stock starts at 1000 for demo seeds, new staff-created products start at zero.
+3. One role per account is intentional for v1. Multiple roles would require a join table and permission composition tests. ADMIN cannot change its own role or enabled state through the UI/API, avoiding accidental loss of the bootstrap administrator.
+4. Salted PBKDF2 accepts long Unicode passwords without bcrypt byte truncation. JWT signing is RSA with external key files. Session checks make revocation immediate after committed role, password or enabled changes.
+5. Refresh replays strictly revoke the session family. Cross-tab refresh is serialized where Web Locks is available. No replay grace interval exists. Lost rotation responses require sign-in.
+6. Cart updates lock the customer, as does checkout. This supplies serialization instead of a separate cart-version DTO. Persisted quotes bind exact line quantities/prices/address and a fixed policy version; changes trigger 409 before payment. Customer profile uses explicit optimistic version checks and fulfillment/product mutations use JPA versions.
+7. Simulated payment is pure and local. Approved order, payment, stock decrement, cart deletion, idempotency and audit commit once. Declined attempt is a retained PAYMENT_FAILED order. External gateway replacement requires a workflow redesign.
+8. Replenishment outbox processing marks the request DISPATCHED but never increases stock. Only an explicit audited receipt does. Local adapters run transactionally; remote adapters need claims, bounded retries/backoff, dead letters and idempotent receivers before adoption.
+9. Demo recovery writes to an ADMIN-only local mail sink. No email is sent. The production mail sink is disabled, so real recovery email delivery is a prerequisite for externally usable production recovery.
+10. Contact inquiries are saved and acknowledged without a ticket state model. Inquiries are not cancellations or refunds. Original contact details are marked unverified. US territory shipping and commercial tax/rate rules remain deferred.
+
+Technical references: https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/jwt.html and https://www.rfc-editor.org/rfc/rfc9700.html#section-4.14. Dependency versions are pinned in Maven and the npm lockfile; container major/patch tags are pinned but production should additionally pin approved image digests.

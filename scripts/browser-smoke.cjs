@@ -1,0 +1,25 @@
+const {chromium}=require('../frontend/node_modules/playwright');
+const fs=require('fs');
+const out=require('path').join(__dirname,'../test-results/browser'); const base=process.env.BASE_URL||'http://localhost:5173'; if(!['localhost','127.0.0.1'].includes(new URL(base).hostname))throw Error('Run only against a local demo.');fs.mkdirSync(out,{recursive:true});
+(async()=>{
+ const browser=await chromium.launch({...(process.env.PLAYWRIGHT_CHROME_PATH?{executablePath:process.env.PLAYWRIGHT_CHROME_PATH}:{}),headless:true});
+ const context=await browser.newContext({viewport:{width:1440,height:1000}});
+ const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(base);await page.getByRole('heading',{name:'Your next computer. Your way.'}).waitFor();
+ await page.screenshot({path:out+'/home.png',fullPage:true});
+ await page.getByRole('button',{name:'Log in',exact:true}).first().click();await page.getByRole('button',{name:'Create account',exact:true}).click();
+ const email='browser-'+Date.now()+'@example.com';
+ await page.getByLabel('Email address').fill(email);await page.getByLabel('Password',{exact:true}).fill('Browser test password 123!');await page.getByLabel('Reenter password').fill('Browser test password 123!');await page.getByRole('button',{name:'Create account',exact:true}).click();
+ await page.getByRole('heading',{name:'Welcome back'}).waitFor();await page.getByLabel('Email address').fill(email);await page.getByLabel('Password',{exact:true}).fill('Browser test password 123!');await page.getByRole('button',{name:'Log in',exact:true}).last().click();
+ await page.getByRole('heading',{name:'Find your next setup'}).waitFor();
+ await page.getByRole('button',{name:'Profile',exact:true}).click();await page.getByLabel('First name').fill('Browser');await page.getByLabel('Last name').fill('Customer');await page.getByLabel('Telephone').fill('913-555-0100');
+ const mailing=page.locator('fieldset').filter({has:page.getByText('Mailing address',{exact:true})});
+ await mailing.getByLabel('Street address',{exact:true}).fill('123 Demo Street');await mailing.getByLabel('City',{exact:true}).fill('Overland Park');await mailing.getByLabel('ZIP code').fill('66251');await page.getByRole('button',{name:'Same as Address'}).click();await page.getByRole('button',{name:'Save profile'}).click();await page.getByText('Profile saved.',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'Shop',exact:true}).click();await page.getByRole('button',{name:'View details'}).first().click();await page.getByRole('button',{name:'Add to cart'}).click();await page.getByText(/added to your cart/).waitFor();
+ await page.getByRole('button',{name:/^Cart/}).click();await page.getByRole('button',{name:'Place order'}).click();await page.getByRole('heading',{name:'Shipping details'}).waitFor();await page.getByRole('button',{name:'Pay for order'}).click();await page.getByRole('heading',{name:'Review and pay'}).waitFor();await page.screenshot({path:out+'/payment.png',fullPage:true});
+ await page.getByRole('button',{name:'Complete order'}).click();await page.getByRole('heading',{name:'Your order',exact:true}).waitFor();await page.getByText('CONFIRMED',{exact:true}).waitFor();await page.screenshot({path:out+'/confirmation.png',fullPage:true});
+ await page.reload();await page.getByRole('heading',{name:'Order history'}).waitFor();await page.getByRole('button',{name:'View',exact:true}).first().click();await page.getByRole('heading',{name:'Your order',exact:true}).waitFor();
+ await page.setViewportSize({width:375,height:812});await page.getByRole('button',{name:'Shop',exact:true}).click();await page.getByRole('heading',{name:'Find your next setup'}).waitFor();await page.screenshot({path:out+'/mobile-catalog.png',fullPage:true});
+ const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth);if(overflow)throw Error('Mobile page horizontal overflow');if(errors.length)throw Error(errors.join('; '));
+ fs.writeFileSync(out+'/result.json',JSON.stringify({registration:true,login:true,profile:true,cart:true,checkout:true,confirmationReload:true,mobileOverflow:false,pageErrors:errors},null,2));console.log('Browser journey passed: registration, login, profile, cart, approved checkout, history/reload and mobile layout.');await browser.close();
+})().catch(e=>{console.error(e);process.exit(1)});

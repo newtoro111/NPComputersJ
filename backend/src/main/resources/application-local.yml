@@ -1,0 +1,9 @@
+app:
+  secure-cookie: false
+  seed: true
+  mail-sink: true
+springdoc:
+  swagger-ui:
+    enabled: true
+  api-docs:
+    enabled: true

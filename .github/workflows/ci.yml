@@ -1,0 +1,56 @@
+name: Build and verify
+on: [push, pull_request]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-postgres-only
+          POSTGRES_DB: npcomputers
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 15
+    env:
+      DB_URL: jdbc:postgresql://localhost:5432/npcomputers
+      DB_PASSWORD: ci-app-only
+      MIGRATION_PASSWORD: ci-migration-only
+      ADMIN_EMAIL: admin@example.test
+      ADMIN_PASSWORD: CI admin password 12345
+      JWT_PRIVATE_KEY: /tmp/np-secrets/private.pem
+      JWT_PUBLIC_KEY: /tmp/np-secrets/public.pem
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '21', cache: maven}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm, cache-dependency-path: frontend/package-lock.json}
+      - name: Initialize test database and signing keys
+        env: {PGPASSWORD: ci-postgres-only}
+        run: |
+          psql -h localhost -U postgres -d npcomputers -v ON_ERROR_STOP=1 -v app_password="$DB_PASSWORD" -v migration_password="$MIGRATION_PASSWORD" -f infra/roles.sql
+          mkdir -p /tmp/np-secrets
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out "$JWT_PRIVATE_KEY"
+          openssl pkey -in "$JWT_PRIVATE_KEY" -pubout -out "$JWT_PUBLIC_KEY"
+      - name: Backend verification
+        working-directory: backend
+        run: chmod +x mvnw && ./mvnw -B -Dnp.integration=true verify
+      - name: Generate backend SBOM
+        working-directory: backend
+        run: ./mvnw -B org.cyclonedx:cyclonedx-maven-plugin:2.9.1:makeAggregateBom
+      - name: Frontend verification
+        working-directory: frontend
+        run: npm ci && npm audit --audit-level=high && npm test && npm run build
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with: {name: backend-sbom, path: backend/target/bom.*}
+      - name: Build container images
+        run: docker build -t np-api:${{ github.sha }} backend && docker build -t np-web:${{ github.sha }} frontend
+      - name: Scan backend image
+        uses: aquasecurity/trivy-action@0.33.1
+        with: {image-ref: 'np-api:${{ github.sha }}', severity: 'CRITICAL,HIGH', exit-code: '1', ignore-unfixed: true, format: table}
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with: {name: test-reports, path: backend/target/surefire-reports}

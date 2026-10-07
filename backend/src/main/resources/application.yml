@@ -1,0 +1,50 @@
+spring:
+  application:
+    name: np-computers
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/npcomputers}
+    username: ${DB_USER:np_app}
+    password: ${DB_PASSWORD}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    user: ${MIGRATION_USER:np_migrate}
+    password: ${MIGRATION_PASSWORD}
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+logging:
+  structured:
+    format:
+      console: logstash
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+      group:
+        readiness:
+          include: readinessState,db
+app:
+  issuer: np-computers
+  audience: np-storefront
+  origin: ${APP_ORIGIN:http://localhost:8080}
+  secure-cookie: true
+  private-key: ${JWT_PRIVATE_KEY:./secrets/private.pem}
+  public-key: ${JWT_PUBLIC_KEY:./secrets/public.pem}
+  seed: false
+  mail-sink: false
+  bootstrap-email: ${ADMIN_EMAIL:}
+  bootstrap-password: ${ADMIN_PASSWORD:}
+springdoc:
+  swagger-ui:
+    enabled: false
+  api-docs:
+    enabled: false
