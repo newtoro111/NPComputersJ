@@ -1,6 +1,8 @@
 # NP Computers
 
-Java 21 / Spring Boot / Maven / React / PostgreSQL enterprise demo. This storefront sells new and used computers and new accessories to U.S. individuals and businesses. All payments and email delivery are simulated. No real payment credentials are collected. There is no support ticket module.
+Java 21 / Spring Boot / Maven / React / PostgreSQL enterprise demo. NP Computers is a portfolio storefront for selling new and used computers and new accessories to U.S. individuals and businesses.
+
+Payments and email delivery are simulated. The application does not collect real payment credentials, and there is no support-ticket module.
 
 ## Quick Start — Windows
 
@@ -10,86 +12,405 @@ Java 21 / Spring Boot / Maven / React / PostgreSQL enterprise demo. This storefr
 - Docker Desktop
 - Windows PowerShell
 
-No local Java, Maven, Node.js, PostgreSQL, OpenSSL, or PowerShell 7
-installation is required when using the Docker Compose workflow.
+No local Java, Maven, Node.js, PostgreSQL, OpenSSL, or PowerShell 7 installation is required when using the Docker Compose workflow.
 
 ### 1. Clone the repository
 
 ```powershell
-git clone <repository-url>
-cd "NP ComputersJ"
-
-## Start in VS Code
-
-Use the project directory **`C:\Users\ronnn\Documents\Development\Java Dev\NP Computers`**. Install Docker Desktop with Linux containers, VS Code and PowerShell 7. Java 21 and Node 22.12+ are needed only for native development.
-
-Open this folder in VS Code and run:
-
-```powershell
-pwsh -File scripts/setup.ps1
-docker compose --env-file .env -f infra/compose.yaml up --build
+git clone https://github.com/newtoro111/NPComputersJ.git
+cd "NPComputersJ"
 ```
 
-Open http://localhost:8080. Create a customer account with a 12–128 character password, log in, complete the profile, shop and check out. Pick Approve or Decline on the payment screen. Read the generated ADMIN credentials from the ignored `.env` file locally; they are never committed. Staff can create products, adjust stock, change user roles, view orders and audit events, and inspect the local mail sink for password reset links. SUPPORT can only read orders; SALES can fulfill them. To test another role, register an account and assign its role through ADMIN.
+### 2. Prepare local configuration
 
-On macOS or Linux, run `sh scripts/setup.sh` instead. Database startup files and migrations initialize only a new volume. `docker compose --env-file .env -f infra/compose.yaml down` retains data. Removing the `db-data` volume destroys data and requires deliberately reinitializing the database; do not do that for routine restarts. Existing database credentials do not change when `.env` is edited.
-
-## Native development
+Run the setup script from the repository root:
 
 ```powershell
-docker compose --env-file .env -f infra/compose.yaml -f infra/compose.local.yaml up -d db
-docker compose --env-file .env -f infra/compose.yaml run --rm migrate
-pwsh -File scripts/dev-backend.ps1
-# in a second terminal
+.\scripts\setup.ps1
+```
+
+The setup script creates local development files that are excluded from source control:
+
+- `.env`
+- `secrets\private.pem`
+- `secrets\public.pem`
+
+The `.env` file contains generated local database credentials and the demo administrator credentials.
+
+### 3. Pull the published application images
+
+The Spring Boot API and React/Nginx web application are published as Docker images. Pull the images referenced by `infra\compose.yaml`:
+
+```powershell
+docker compose --env-file ".\.env" -f ".\infra\compose.yaml" pull
+```
+
+PostgreSQL and Flyway are also pulled automatically from their public registries.
+
+### 4. Start NP Computers
+
+```powershell
+docker compose --env-file ".\.env" -f ".\infra\compose.yaml" up
+```
+
+On first startup, Docker Compose:
+
+1. Starts PostgreSQL.
+2. Initializes database roles and permissions.
+3. Runs all Flyway migrations.
+4. Starts the Spring Boot API.
+5. Starts the React/Nginx web application.
+
+Wait until the database, API, and web services report healthy status.
+
+### 5. Open the application
+
+Open:
+
+[http://localhost:8080](http://localhost:8080)
+
+Create a customer account with a 12–128 character password, log in, complete the customer profile, browse the catalog, add products to the cart, and complete checkout.
+
+The payment screen supports simulated **Approve** and **Decline** outcomes.
+
+### 6. Demo administrator
+
+Read the locally generated administrator credentials from `.env`:
+
+```powershell
+Get-Content ".\.env"
+```
+
+Look for:
+
+```text
+ADMIN_EMAIL=...
+ADMIN_PASSWORD=...
+```
+
+These values are generated locally and are never committed to Git.
+
+Administrator capabilities include:
+
+- Create and maintain products.
+- Adjust inventory.
+- Change user roles.
+- View customer orders.
+- View audit events.
+- Inspect the local mail sink for simulated password-reset messages.
+
+Role behavior:
+
+- `CUSTOMER` — customer storefront and account functionality.
+- `ADMIN` — administrative functionality.
+- `SALES` — order fulfillment functionality.
+- `SUPPORT` — read-only order access.
+
+To test another staff role, register an account and assign the desired role while logged in as `ADMIN`.
+
+### 7. Check container status
+
+In another PowerShell window, from the repository root:
+
+```powershell
+docker compose --env-file ".\.env" -f ".\infra\compose.yaml" ps
+```
+
+A healthy environment should show approximately:
+
+- `db` — running and healthy.
+- `migrate` — exited successfully with code `0`.
+- `api` — running and healthy.
+- `web` — running and healthy.
+
+### 8. Stop the application
+
+Press `Ctrl+C` in the Docker Compose terminal, or run:
+
+```powershell
+docker compose --env-file ".\.env" -f ".\infra\compose.yaml" down
+```
+
+The PostgreSQL data volume is retained during a normal shutdown.
+
+Do **not** use `down -v` for routine shutdown. Removing the `db-data` volume destroys the local database and requires database initialization to run again.
+
+Existing database credentials do not automatically change if `.env` is edited after the database volume has already been initialized.
+
+## macOS and Linux
+
+Run the shell setup script instead of the PowerShell setup script:
+
+```bash
+sh scripts/setup.sh
+docker compose --env-file .env -f infra/compose.yaml pull
+docker compose --env-file .env -f infra/compose.yaml up
+```
+
+Open:
+
+[http://localhost:8080](http://localhost:8080)
+
+Database startup scripts and migrations initialize a new database volume. A normal `docker compose ... down` retains data.
+
+## Build From Source / Native Development
+
+The published-image workflow above is the recommended way to evaluate the application.
+
+Developers who want to build or modify the source locally can use the development workflow below.
+
+### Requirements for native development
+
+- Java 21
+- Node.js 22.12+
+- Docker Desktop
+- Maven wrapper supplied by the repository
+
+PowerShell 7 is not required for the standard Windows setup.
+
+### Start PostgreSQL and run migrations
+
+```powershell
+docker compose --env-file ".\.env" -f ".\infra\compose.yaml" -f ".\infra\compose.local.yaml" up -d db
+
+docker compose --env-file ".\.env" -f ".\infra\compose.yaml" run --rm migrate
+```
+
+### Start the backend
+
+```powershell
+.\scripts\dev-backend.ps1
+```
+
+### Start the frontend
+
+In a second terminal:
+
+```powershell
 cd frontend
 npm ci
 npm run dev
 ```
 
-Frontend: http://localhost:5173. API: http://localhost:8081. OpenAPI JSON: `/v3/api-docs`; Swagger UI: `/swagger-ui/index.html` on the API in local/demo. Vite proxies API requests and the authentication origin is set to the frontend. Configure `JAVA_HOME` to Java 21; the Maven wrapper downloads its pinned distribution on first use.
+Development endpoints:
 
-## Build and test
+- Frontend: [http://localhost:5173](http://localhost:5173)
+- API: [http://localhost:8081](http://localhost:8081)
+- OpenAPI JSON: `http://localhost:8081/v3/api-docs`
+- Swagger UI: `http://localhost:8081/swagger-ui/index.html`
+
+Vite proxies API requests during native frontend development, and the authentication origin is set to the frontend.
+
+Configure `JAVA_HOME` to Java 21. The Maven wrapper downloads its pinned Maven distribution on first use.
+
+## Build and Test
+
+### Backend
 
 ```powershell
 cd backend
-./mvnw.cmd verify
-# integration tests need an initialized PostgreSQL database and generated keys
-./mvnw.cmd -Dnp.integration=true test
-cd ../frontend
+.\mvnw.cmd verify
+```
+
+Integration tests require an initialized PostgreSQL database and generated RSA keys:
+
+```powershell
+.\mvnw.cmd -Dnp.integration=true test
+```
+
+### Frontend
+
+```powershell
+cd frontend
 npm ci
 npm test
 npm run build
 ```
 
-Integration test environment: `DB_URL`, `DB_PASSWORD`, `MIGRATION_PASSWORD`, `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`; use an isolated empty test database with roles `np_app` and `np_migrate`. Tests write synthetic data. Do not point tests at a database containing useful data. CI initializes these dependencies and enables the integration suite. See `docs/verification.md` for locally executed checks and limitations.
+The integration-test environment uses:
 
-## Structure
+- `DB_URL`
+- `DB_PASSWORD`
+- `MIGRATION_PASSWORD`
+- `JWT_PRIVATE_KEY`
+- `JWT_PUBLIC_KEY`
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD`
 
-- `backend`: API contracts/controllers, domain entities, Spring Data repositories, application services and security configuration; Flyway SQL.
-- `frontend`: accessible customer/store/staff interface; API client holds access tokens only in memory.
-- `infra`: private database network, migration job, API and SPA proxy; PostgreSQL data volume.
-- `scripts`: local key/secret setup and development startup.
-- `docs`: implementation decisions, requirement coverage and operations notes.
+Use an isolated, empty test database with the `np_app` and `np_migrate` roles. Integration tests write synthetic data. Do not point tests at a database containing useful data.
 
-## Important implementation decisions
+CI initializes the required dependencies and enables the integration suite.
 
-JWT access life is five minutes; every request checks the stored session. Opaque refresh tokens rotate with seven day idle and 30 day absolute limits. Reuse revokes the family, including a racing second refresh. Cookie endpoints enforce CSRF and exact Origin. Browser refresh uses one in-flight promise and the Web Locks API when available; response loss may require login. Production defaults require secure cookies and private signing keys. Passwords use salted PBKDF2, not reversible encryption.
+See `docs/verification.md` for locally executed checks and known limitations.
 
-Orders use a customer lock, deterministic product locks, persisted quotes and idempotency keys. Price, stock, shipping and tax are server controlled. Shipping is a demo flat $10 and tax is zero. Successful local simulated checkout commits order/payment/stock/audit together. A decline leaves cart and stock unchanged. A real payment gateway requires reservation and reconciliation work before use.
+## Browser Smoke Test
 
-This implementation uses one role per account (CUSTOMER, ADMIN, SALES or SUPPORT), rather than multiple simultaneous roles. Product stock is held on the product aggregate to share the lock with price and activity checks. The local outbox adapters do no network calls; a real adapter must add leases, external-call retry handling and independent delivery transactions. See `docs/architecture-decisions.md` for these intentional differences from the design proposal.
-
-Compose binds only localhost and is a development/demo distribution. An external launch needs TLS, secure cookies, approved contact/tax/shipping policies, mail delivery, monitoring, retention and tested backup/recovery. Production OpenAPI and the mail sink are disabled by default. No commercial readiness or measured availability target is implied.
-
-## Browser smoke test
-
-With the local frontend and backend running, install the browser once and run from the project root:
+With the local frontend and backend running, install Chromium for Playwright once:
 
 ```powershell
 cd frontend
 npx playwright install chromium
 cd ..
+```
+
+Then run from the repository root:
+
+```powershell
 node scripts/browser-smoke.cjs
 ```
 
-For Compose, set `BASE_URL=http://localhost:8080` before running. For an installed Chrome, set `PLAYWRIGHT_CHROME_PATH` to its executable path. The test creates a disposable customer and order and writes ignored screenshots/results under `test-results/browser`. It refuses non-local targets.
+For the Docker Compose deployment, set:
+
+```powershell
+$env:BASE_URL="http://localhost:8080"
+node scripts/browser-smoke.cjs
+```
+
+For an installed Chrome browser, set `PLAYWRIGHT_CHROME_PATH` to the Chrome executable path.
+
+The smoke test:
+
+- Creates a disposable customer.
+- Creates a disposable order.
+- Writes ignored screenshots and results under `test-results/browser`.
+- Refuses non-local targets.
+
+## Project Structure
+
+- `backend` — Spring Boot API contracts/controllers, domain entities, Spring Data repositories, application services, security configuration, and Flyway migrations.
+- `frontend` — React customer/store/staff interface. Access tokens are held only in memory.
+- `infra` — Docker Compose topology, private database network, migration job, API/web services, and PostgreSQL data volume.
+- `scripts` — local key/secret setup, development startup, and test utilities.
+- `docs` — implementation decisions, requirement coverage, verification, and operations notes.
+- `secrets` — locally generated RSA signing keys. The contents are excluded from source control.
+- `.env` — locally generated environment credentials. Excluded from source control.
+
+## Container Distribution
+
+The primary Docker Compose configuration uses published application images for the API and web tiers rather than requiring reviewers to compile the project locally.
+
+The images referenced by `infra/compose.yaml` can be downloaded with:
+
+```powershell
+docker compose --env-file ".\.env" -f ".\infra\compose.yaml" pull
+```
+
+This keeps the evaluation path simple:
+
+```text
+clone repository
+      ↓
+run setup script
+      ↓
+pull container images
+      ↓
+docker compose up
+      ↓
+open http://localhost:8080
+```
+
+The source Dockerfiles remain in `backend` and `frontend` for development, inspection, and rebuilding new image versions.
+
+## Important Implementation Decisions
+
+JWT access-token lifetime is five minutes, and every authenticated request checks the stored server-side session.
+
+Opaque refresh tokens rotate with:
+
+- Seven-day idle expiration.
+- Thirty-day absolute expiration.
+
+Refresh-token reuse revokes the token family, including a racing second refresh.
+
+Cookie-backed authentication endpoints enforce CSRF protection and exact Origin validation. Browser refresh uses one in-flight promise and the Web Locks API when available. Response loss may require the user to log in again.
+
+Production defaults require secure cookies and private signing keys.
+
+Passwords use salted PBKDF2 and are never stored using reversible encryption.
+
+Orders use:
+
+- A customer lock.
+- Deterministic product locks.
+- Persisted checkout quotes.
+- Idempotency keys.
+- Server-controlled price, inventory, shipping, and tax calculations.
+
+For this demo:
+
+- Shipping is a flat `$10`.
+- Tax is `$0`.
+- Payment processing is simulated.
+
+A successful simulated checkout commits the order, payment, stock movement, and audit data together. A declined payment leaves the cart and stock unchanged.
+
+A real payment gateway would require reservation, reconciliation, provider-token handling, and additional failure-recovery design before production use.
+
+The application intentionally uses one role per account:
+
+- `CUSTOMER`
+- `ADMIN`
+- `SALES`
+- `SUPPORT`
+
+Product stock is maintained on the product aggregate so price, activity status, and inventory can share the same locking boundary.
+
+The local outbox adapters make no network calls. A real adapter would require leases, independent delivery transactions, external-call retry handling, and operational monitoring.
+
+See `docs/architecture-decisions.md` for intentional differences between the implementation and the original architecture proposal.
+
+## Security and Secrets
+
+The following files are local-only and must not be committed:
+
+```text
+.env
+secrets/private.pem
+secrets/public.pem
+```
+
+The repository `.gitignore` excludes these files.
+
+Before committing, developers can verify this with:
+
+```powershell
+git check-ignore -v .env
+git check-ignore -v secrets/private.pem
+git check-ignore -v secrets/public.pem
+```
+
+The RSA private key is mounted into the API container at runtime. It is not embedded in the application image.
+
+## Database Migrations and Demo Data
+
+Database changes are managed with Flyway migrations under:
+
+```text
+backend/src/main/resources/db/migration
+```
+
+The migration job runs before the API starts.
+
+The repository includes demo product data for computers, laptops, tablets, accessories, storage, networking, monitors, peripherals, and related catalog items.
+
+Do not manually modify an existing Flyway migration after it has been applied. Add a new versioned migration for schema or seed-data changes.
+
+## Operational Scope
+
+Docker Compose binds the application only to localhost and is intended as a development/demo distribution.
+
+An external production launch would require additional work, including:
+
+- TLS termination.
+- Secure-cookie configuration.
+- Approved contact, tax, and shipping policies.
+- Real mail delivery.
+- Production payment integration.
+- Monitoring and alerting.
+- Data-retention controls.
+- Backup and recovery procedures.
+- Security review and secrets management.
+
+Production OpenAPI and the local mail sink are disabled by default.
+
+No commercial readiness or measured availability target is implied.
