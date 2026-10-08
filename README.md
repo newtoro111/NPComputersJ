@@ -284,15 +284,21 @@ The smoke test:
 - `docs` — implementation decisions, requirement coverage, verification, and operations notes.
 - `secrets` — locally generated RSA signing keys. The contents are excluded from source control.
 - `.env` — locally generated environment credentials. Excluded from source control.
-
 ## Container Distribution
 
-The primary Docker Compose configuration uses published application images for the API and web tiers rather than requiring reviewers to compile the project locally.
+The primary Docker Compose configuration uses published application images for
+the API and web tiers rather than requiring reviewers to compile the project locally.
+
+Published Docker Hub images:
+
+- `newtoro1/npcomputers-api:1.0.0`
+- `newtoro1/npcomputers-web:1.0.0`
 
 The images referenced by `infra/compose.yaml` can be downloaded with:
 
 ```powershell
 docker compose --env-file ".\.env" -f ".\infra\compose.yaml" pull
+
 ```
 
 This keeps the evaluation path simple:
