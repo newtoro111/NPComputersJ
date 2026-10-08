@@ -507,3 +507,5 @@ An external production launch would require additional work, including:
 Production OpenAPI and the local mail sink are disabled by default.
 
 No commercial readiness or measured availability target is implied.
+
+If you are still with me here, please consider liking and subscribing... JK.
