@@ -45,6 +45,17 @@ When the services report healthy, open:
 
 [http://localhost:8080](http://localhost:8080)
 
+Normal day-to-day evaluator shutdown should use the following:
+```powershell
+docker compose -p npcomputers-eval --env-file ".\.env" -f ".\infra\compose.yaml" down
+```
+
+The following should be used when you want a fresh evaluator rerun with newly generated credentials:
+```powershell
+docker compose -p npcomputers-eval --env-file ".\.env" -f ".\infra\compose.yaml" down -v
+```
+
+
 ### macOS and Linux
 
 ```bash
