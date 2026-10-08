@@ -284,6 +284,8 @@ The smoke test:
 - `docs` — implementation decisions, requirement coverage, verification, and operations notes.
 - `secrets` — locally generated RSA signing keys. The contents are excluded from source control.
 - `.env` — locally generated environment credentials. Excluded from source control.
+
+
 ## Container Distribution
 
 The primary Docker Compose configuration uses published application images for
