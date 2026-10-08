@@ -14,6 +14,27 @@ Payments and email delivery are simulated. The application does not collect real
 
 No local Java, Maven, Node.js, PostgreSQL, OpenSSL, or PowerShell 7 installation is required when using the Docker Compose workflow.
 
+### Evaluator sequence
+
+For a clean evaluation on a new machine or in a new folder:
+
+```powershell
+git clone https://github.com/newtoro111/NPComputersJ.git
+cd "NPComputersJ"
+
+.\scripts\setup.ps1
+
+docker compose --env-file ".\.env" -f ".\infra\compose.yaml" config
+docker compose --env-file ".\.env" -f ".\infra\compose.yaml" pull
+docker compose --env-file ".\.env" -f ".\infra\compose.yaml" up
+```
+
+The `config` step validates the Compose file and required environment variables before containers are started. The `pull` step downloads the published NP Computers API and web images plus the required PostgreSQL and Flyway images.
+
+When the services report healthy, open:
+
+[http://localhost:8080](http://localhost:8080)
+
 ### 1. Clone the repository
 
 ```powershell
@@ -37,7 +58,15 @@ The setup script creates local development files that are excluded from source c
 
 The `.env` file contains generated local database credentials and the demo administrator credentials.
 
-### 3. Pull the published application images
+### 3. Validate the Compose configuration
+
+```powershell
+docker compose --env-file ".\.env" -f ".\infra\compose.yaml" config
+```
+
+This should complete without a YAML or environment-variable error before continuing.
+
+### 4. Pull the published application images
 
 The Spring Boot API and React/Nginx web application are published as Docker images. Pull the images referenced by `infra\compose.yaml`:
 
@@ -45,9 +74,14 @@ The Spring Boot API and React/Nginx web application are published as Docker imag
 docker compose --env-file ".\.env" -f ".\infra\compose.yaml" pull
 ```
 
+Published Docker Hub images:
+
+- `newtoro1/npcomputers-api:1.0.0`
+- `newtoro1/npcomputers-web:1.0.0`
+
 PostgreSQL and Flyway are also pulled automatically from their public registries.
 
-### 4. Start NP Computers
+### 5. Start NP Computers
 
 ```powershell
 docker compose --env-file ".\.env" -f ".\infra\compose.yaml" up
@@ -63,7 +97,7 @@ On first startup, Docker Compose:
 
 Wait until the database, API, and web services report healthy status.
 
-### 5. Open the application
+### 6. Open the application
 
 Open:
 
@@ -73,7 +107,7 @@ Create a customer account with a 12–128 character password, log in, complete t
 
 The payment screen supports simulated **Approve** and **Decline** outcomes.
 
-### 6. Demo administrator
+### 7. Demo administrator
 
 Read the locally generated administrator credentials from `.env`:
 
@@ -108,7 +142,7 @@ Role behavior:
 
 To test another staff role, register an account and assign the desired role while logged in as `ADMIN`.
 
-### 7. Check container status
+### 8. Check container status
 
 In another PowerShell window, from the repository root:
 
@@ -123,7 +157,7 @@ A healthy environment should show approximately:
 - `api` — running and healthy.
 - `web` — running and healthy.
 
-### 8. Stop the application
+### 9. Stop the application
 
 Press `Ctrl+C` in the Docker Compose terminal, or run:
 
@@ -142,7 +176,12 @@ Existing database credentials do not automatically change if `.env` is edited af
 Run the shell setup script instead of the PowerShell setup script:
 
 ```bash
+git clone https://github.com/newtoro111/NPComputersJ.git
+cd NPComputersJ
+
 sh scripts/setup.sh
+
+docker compose --env-file .env -f infra/compose.yaml config
 docker compose --env-file .env -f infra/compose.yaml pull
 docker compose --env-file .env -f infra/compose.yaml up
 ```
@@ -285,11 +324,9 @@ The smoke test:
 - `secrets` — locally generated RSA signing keys. The contents are excluded from source control.
 - `.env` — locally generated environment credentials. Excluded from source control.
 
-
 ## Container Distribution
 
-The primary Docker Compose configuration uses published application images for
-the API and web tiers rather than requiring reviewers to compile the project locally.
+The primary Docker Compose configuration uses published application images for the API and web tiers rather than requiring reviewers to compile the project locally.
 
 Published Docker Hub images:
 
@@ -300,7 +337,6 @@ The images referenced by `infra/compose.yaml` can be downloaded with:
 
 ```powershell
 docker compose --env-file ".\.env" -f ".\infra\compose.yaml" pull
-
 ```
 
 This keeps the evaluation path simple:
@@ -309,6 +345,8 @@ This keeps the evaluation path simple:
 clone repository
       ↓
 run setup script
+      ↓
+validate Compose configuration
       ↓
 pull container images
       ↓
