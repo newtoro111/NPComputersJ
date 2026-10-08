@@ -4,19 +4,21 @@ Java 21 / Spring Boot / Maven / React / PostgreSQL enterprise demo. NP Computers
 
 Payments and email delivery are simulated. The application does not collect real payment credentials, and there is no support-ticket module.
 
-## Quick Start — Windows
+## Quick Start — Evaluator Workflow
+
+The recommended evaluation workflow uses published Docker images and an isolated Docker Compose project name so a clean evaluation does not reuse an existing NP Computers database volume on the same machine.
 
 ### Prerequisites
 
 - Git
 - Docker Desktop
-- Windows PowerShell
+- Windows PowerShell, macOS Terminal, or a Linux shell
 
-No local Java, Maven, Node.js, PostgreSQL, OpenSSL, or PowerShell 7 installation is required when using the Docker Compose workflow.
+No local Java, Maven, Node.js, PostgreSQL, OpenSSL, or PowerShell 7 installation is required for the Docker Compose evaluator workflow.
 
-### Evaluator sequence
+### Windows
 
-For a clean evaluation on a new machine or in a new folder:
+From PowerShell:
 
 ```powershell
 git clone https://github.com/newtoro111/NPComputersJ.git
@@ -24,68 +26,66 @@ cd "NPComputersJ"
 
 .\scripts\setup.ps1
 
-docker compose --env-file ".\.env" -f ".\infra\compose.yaml" config
-docker compose --env-file ".\.env" -f ".\infra\compose.yaml" pull
-docker compose --env-file ".\.env" -f ".\infra\compose.yaml" up
+docker compose -p npcomputers-eval --env-file ".\.env" -f ".\infra\compose.yaml" config
+docker compose -p npcomputers-eval --env-file ".\.env" -f ".\infra\compose.yaml" pull
+docker compose -p npcomputers-eval --env-file ".\.env" -f ".\infra\compose.yaml" up
 ```
 
-The `config` step validates the Compose file and required environment variables before containers are started. The `pull` step downloads the published NP Computers API and web images plus the required PostgreSQL and Flyway images.
+The steps above:
+
+1. Clone the source repository.
+2. Generate local-only secrets and credentials with the setup script.
+3. Validate the Compose configuration.
+4. Pull the published NP Computers API and web images plus PostgreSQL and Flyway.
+5. Start the complete application using the isolated Compose project name `npcomputers-eval`.
+
+Using `-p npcomputers-eval` is intentional. The Compose file declares a default project name for normal development, but an evaluator should use a separate project name so Docker creates separate networks, containers, and the PostgreSQL volume. This prevents a new `.env` from being paired with an older database volume that contains different PostgreSQL role passwords.
 
 When the services report healthy, open:
 
 [http://localhost:8080](http://localhost:8080)
 
-### 1. Clone the repository
+### macOS and Linux
 
-```powershell
+```bash
 git clone https://github.com/newtoro111/NPComputersJ.git
-cd "NPComputersJ"
+cd NPComputersJ
+
+sh scripts/setup.sh
+
+docker compose -p npcomputers-eval --env-file .env -f infra/compose.yaml config
+docker compose -p npcomputers-eval --env-file .env -f infra/compose.yaml pull
+docker compose -p npcomputers-eval --env-file .env -f infra/compose.yaml up
 ```
 
-### 2. Prepare local configuration
+Open:
 
-Run the setup script from the repository root:
+[http://localhost:8080](http://localhost:8080)
 
-```powershell
-.\scripts\setup.ps1
-```
+## What Setup Creates
 
 The setup script creates local development files that are excluded from source control:
 
 - `.env`
-- `secrets\private.pem`
-- `secrets\public.pem`
+- `secrets/private.pem`
+- `secrets/public.pem`
 
 The `.env` file contains generated local database credentials and the demo administrator credentials.
 
-### 3. Validate the Compose configuration
+These files must remain local. They are intentionally excluded from Git.
 
-```powershell
-docker compose --env-file ".\.env" -f ".\infra\compose.yaml" config
-```
+## Published Docker Images
 
-This should complete without a YAML or environment-variable error before continuing.
-
-### 4. Pull the published application images
-
-The Spring Boot API and React/Nginx web application are published as Docker images. Pull the images referenced by `infra\compose.yaml`:
-
-```powershell
-docker compose --env-file ".\.env" -f ".\infra\compose.yaml" pull
-```
-
-Published Docker Hub images:
+The evaluator workflow uses these public Docker Hub application images:
 
 - `newtoro1/npcomputers-api:1.0.0`
 - `newtoro1/npcomputers-web:1.0.0`
 
-PostgreSQL and Flyway are also pulled automatically from their public registries.
+PostgreSQL and Flyway are pulled from their public registries through `infra/compose.yaml`.
 
-### 5. Start NP Computers
+The source Dockerfiles remain in `backend` and `frontend` for development, inspection, and rebuilding new image versions.
 
-```powershell
-docker compose --env-file ".\.env" -f ".\infra\compose.yaml" up
-```
+## First Startup
 
 On first startup, Docker Compose:
 
@@ -95,9 +95,9 @@ On first startup, Docker Compose:
 4. Starts the Spring Boot API.
 5. Starts the React/Nginx web application.
 
-Wait until the database, API, and web services report healthy status.
+The `migrate` container is expected to exit successfully after migrations complete.
 
-### 6. Open the application
+## Open the Application
 
 Open:
 
@@ -107,9 +107,11 @@ Create a customer account with a 12–128 character password, log in, complete t
 
 The payment screen supports simulated **Approve** and **Decline** outcomes.
 
-### 7. Demo administrator
+## Demo Administrator
 
-Read the locally generated administrator credentials from `.env`:
+Read the locally generated administrator credentials from `.env`.
+
+On Windows:
 
 ```powershell
 Get-Content ".\.env"
@@ -142,12 +144,12 @@ Role behavior:
 
 To test another staff role, register an account and assign the desired role while logged in as `ADMIN`.
 
-### 8. Check container status
+## Check Container Status
 
-In another PowerShell window, from the repository root:
+For the evaluator project:
 
 ```powershell
-docker compose --env-file ".\.env" -f ".\infra\compose.yaml" ps
+docker compose -p npcomputers-eval --env-file ".\.env" -f ".\infra\compose.yaml" ps
 ```
 
 A healthy environment should show approximately:
@@ -157,48 +159,91 @@ A healthy environment should show approximately:
 - `api` — running and healthy.
 - `web` — running and healthy.
 
-### 9. Stop the application
+## Stop the Evaluator Environment
 
-Press `Ctrl+C` in the Docker Compose terminal, or run:
+Press `Ctrl+C` in the terminal running Docker Compose, or run:
 
 ```powershell
-docker compose --env-file ".\.env" -f ".\infra\compose.yaml" down
+docker compose -p npcomputers-eval --env-file ".\.env" -f ".\infra\compose.yaml" down
 ```
 
-The PostgreSQL data volume is retained during a normal shutdown.
+A normal `down` retains the evaluator PostgreSQL data volume.
 
-Do **not** use `down -v` for routine shutdown. Removing the `db-data` volume destroys the local database and requires database initialization to run again.
+To deliberately remove only the evaluator environment and its database volume:
 
-Existing database credentials do not automatically change if `.env` is edited after the database volume has already been initialized.
-
-## macOS and Linux
-
-Run the shell setup script instead of the PowerShell setup script:
-
-```bash
-git clone https://github.com/newtoro111/NPComputersJ.git
-cd NPComputersJ
-
-sh scripts/setup.sh
-
-docker compose --env-file .env -f infra/compose.yaml config
-docker compose --env-file .env -f infra/compose.yaml pull
-docker compose --env-file .env -f infra/compose.yaml up
+```powershell
+docker compose -p npcomputers-eval --env-file ".\.env" -f ".\infra\compose.yaml" down -v
 ```
 
-Open:
+Because the evaluator uses the separate project name `npcomputers-eval`, this command targets the evaluator resources rather than the normal NP Computers development project.
 
-[http://localhost:8080](http://localhost:8080)
+Do not use `down -v` against the normal development project unless you intentionally want to delete its database.
 
-Database startup scripts and migrations initialize a new database volume. A normal `docker compose ... down` retains data.
+## Troubleshooting
+
+### `.env` file not found
+
+If Compose reports that `.env` cannot be found, run the setup script before any `docker compose` command:
+
+```powershell
+.\scripts\setup.ps1
+```
+
+Then verify:
+
+```powershell
+Get-Item ".\.env"
+Get-ChildItem ".\secrets"
+```
+
+You should see `.env`, `private.pem`, and `public.pem`.
+
+### Compose YAML or configuration error
+
+Validate the file before pulling or starting containers:
+
+```powershell
+docker compose -p npcomputers-eval --env-file ".\.env" -f ".\infra\compose.yaml" config
+```
+
+Do not continue until `config` completes successfully.
+
+### `password authentication failed for user "np_migrate"`
+
+This typically means a PostgreSQL data volume was initialized with different credentials than the current `.env`.
+
+For evaluator testing, always use:
+
+```text
+-p npcomputers-eval
+```
+
+If the evaluator environment itself was previously initialized with an older `.env` and can be discarded, remove only the evaluator environment and volume:
+
+```powershell
+docker compose -p npcomputers-eval --env-file ".\.env" -f ".\infra\compose.yaml" down -v
+```
+
+Then rerun the setup sequence. If `.env` already exists and is still the intended evaluator configuration, keep it; the setup script should not be used to replace working credentials unnecessarily.
+
+### API signing-key errors
+
+The API requires the locally generated RSA files:
+
+```text
+secrets/private.pem
+secrets/public.pem
+```
+
+If they are missing, rerun the setup script before starting Compose.
 
 ## Build From Source / Native Development
 
 The published-image workflow above is the recommended way to evaluate the application.
 
-Developers who want to build or modify the source locally can use the development workflow below.
+Developers who want to modify and run the source locally can use the native-development workflow below.
 
-### Requirements for native development
+### Native Development Requirements
 
 - Java 21
 - Node.js 22.12+
@@ -207,7 +252,9 @@ Developers who want to build or modify the source locally can use the developmen
 
 PowerShell 7 is not required for the standard Windows setup.
 
-### Start PostgreSQL and run migrations
+### Start PostgreSQL and Run Migrations
+
+For normal development, use the default Compose project defined by the repository rather than the evaluator project name:
 
 ```powershell
 docker compose --env-file ".\.env" -f ".\infra\compose.yaml" -f ".\infra\compose.local.yaml" up -d db
@@ -215,13 +262,13 @@ docker compose --env-file ".\.env" -f ".\infra\compose.yaml" -f ".\infra\compose
 docker compose --env-file ".\.env" -f ".\infra\compose.yaml" run --rm migrate
 ```
 
-### Start the backend
+### Start the Backend
 
 ```powershell
 .\scripts\dev-backend.ps1
 ```
 
-### Start the frontend
+### Start the Frontend
 
 In a second terminal:
 
@@ -326,20 +373,9 @@ The smoke test:
 
 ## Container Distribution
 
-The primary Docker Compose configuration uses published application images for the API and web tiers rather than requiring reviewers to compile the project locally.
+The primary Docker Compose configuration uses published application images for the API and web tiers rather than requiring evaluators to compile the project locally.
 
-Published Docker Hub images:
-
-- `newtoro1/npcomputers-api:1.0.0`
-- `newtoro1/npcomputers-web:1.0.0`
-
-The images referenced by `infra/compose.yaml` can be downloaded with:
-
-```powershell
-docker compose --env-file ".\.env" -f ".\infra\compose.yaml" pull
-```
-
-This keeps the evaluation path simple:
+Evaluation path:
 
 ```text
 clone repository
@@ -348,14 +384,14 @@ run setup script
       ↓
 validate Compose configuration
       ↓
-pull container images
+pull published images
       ↓
-docker compose up
+start isolated evaluator project
       ↓
 open http://localhost:8080
 ```
 
-The source Dockerfiles remain in `backend` and `frontend` for development, inspection, and rebuilding new image versions.
+The evaluator project name is deliberately separate from the normal development project so that credentials and PostgreSQL volumes cannot accidentally cross between environments.
 
 ## Important Implementation Decisions
 
