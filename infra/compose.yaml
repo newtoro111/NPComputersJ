@@ -1,4 +1,5 @@
 name: np-computers
+
 services:
   db:
     image: postgres:17.6-alpine
@@ -12,12 +13,14 @@ services:
       - db-data:/var/lib/postgresql/data
       - ./init-db.sh:/docker-entrypoint-initdb.d/00-init.sh:ro
       - ./roles.sql:/opt/np/roles.sql:ro
-    networks: [database]
+    networks:
+      - database
     healthcheck:
-      test: [CMD-SHELL, 'pg_isready -U postgres -d npcomputers']
+      test: ["CMD-SHELL", "pg_isready -U postgres -d npcomputers"]
       interval: 5s
       retries: 20
     restart: unless-stopped
+
   migrate:
     image: flyway/flyway:11.13.2
     command: migrate
@@ -28,17 +31,20 @@ services:
       FLYWAY_CONNECT_RETRIES: 30
     volumes:
       - ../backend/src/main/resources/db/migration:/flyway/sql:ro
-    networks: [database]
+    networks:
+      - database
     depends_on:
-      db: {condition: service_healthy}
+      db:
+        condition: service_healthy
+
   api:
-  image: newtoro1/npcomputers-api:1.0.0
+    image: newtoro1/npcomputers-api:1.0.0
     environment:
       SPRING_PROFILES_ACTIVE: demo
       DB_URL: jdbc:postgresql://db:5432/npcomputers
       DB_PASSWORD: ${DB_PASSWORD}
       MIGRATION_PASSWORD: ${MIGRATION_PASSWORD}
-      SPRING_FLYWAY_ENABLED: 'false'
+      SPRING_FLYWAY_ENABLED: "false"
       JWT_PRIVATE_KEY: /run/secrets/private.pem
       JWT_PUBLIC_KEY: /run/secrets/public.pem
       APP_ORIGIN: ${APP_ORIGIN:-http://localhost:8080}
@@ -46,28 +52,45 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
     volumes:
       - ../secrets:/run/secrets:ro
-    networks: [application, database]
+    networks:
+      - application
+      - database
     depends_on:
-      migrate: {condition: service_completed_successfully}
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
-      test: [CMD-SHELL, 'wget -q -O - http://localhost:8080/actuator/health/readiness || exit 1']
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q -O - http://localhost:8080/actuator/health/readiness || exit 1"
+        ]
       start_period: 60s
       interval: 10s
       retries: 12
     restart: unless-stopped
+
   web:
-  image: newtoro1/npcomputers-web:1.0.0
-    ports: ['127.0.0.1:8080:8080']
-    networks: [application]
+    image: newtoro1/npcomputers-web:1.0.0
+    ports:
+      - "127.0.0.1:8080:8080"
+    networks:
+      - application
     depends_on:
-      api: {condition: service_healthy}
+      api:
+        condition: service_healthy
     healthcheck:
-      test: [CMD-SHELL, 'wget -q -O - http://127.0.0.1:8080/ || exit 1']
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q -O - http://127.0.0.1:8080/ || exit 1"
+        ]
       interval: 10s
     restart: unless-stopped
+
 networks:
   application:
   database:
     internal: true
+
 volumes:
   db-data:
